@@ -4,51 +4,16 @@ use std::{
     thread::spawn,
 };
 
+use resp::RespHandler;
+mod resp;
+
 const MESSAGE_SIZE: usize = 512;
 
 fn handle_client(mut stream: TcpStream) {
     let mut buffer = [0; MESSAGE_SIZE];
+    let mut handler = RespHandler::new(stream);
 
-    loop {
-        match stream.read(&mut buffer) {
-            Ok(0) => {
-                println!("Client disconnected.");
-                break;
-            }
-            Ok(_) => {
-                let request = String::from_utf8_lossy(&buffer).trim().to_string();
-                println!("Request: {}", request);
-
-                match request.as_str() {
-                    "ping" => {
-                        let response = b"+PONG\r\n";
-                        stream
-                            .write_all(response)
-                            .expect("Failed to write to stream");
-                    }
-                    "echo" => {
-                        const ECHO_PREFIX: &str = "+";
-                        let response = b"+{}\r\n";
-                        stream
-                            .write_all(response)
-                            .expect("Failed to write to stream");
-                    }
-                    _ => {
-                        let response = b"+OK\r\n";
-                        stream
-                            .write_all(response)
-                            .expect("Failed to write to stream");
-                    }
-                }
-
-                buffer.fill(0);
-            }
-            Err(e) => {
-                eprintln!("Failed to read from stream: {}", e);
-                break;
-            }
-        }
-    }
+    loop {}
 }
 
 fn main() {
