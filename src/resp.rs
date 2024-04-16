@@ -1,12 +1,13 @@
 use anyhow::{anyhow, Result};
 use bytes::BytesMut;
-use std::{
-    io::{Read, Write},
-    net::{TcpListener, TcpStream},
-    thread::spawn,
-};
+use std::io::{Read, Write};
+
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::{TcpListener, TcpStream};
 
 const CRLF: &str = "\r\n";
+
+#[derive(Clone, Debug)]
 pub enum RespType {
     SimpleString(String),
     Error(String),
@@ -41,7 +42,7 @@ impl RespHandler {
     }
 
     pub async fn read_value(&mut self) -> Result<Option<RespType>> {
-        let bytes_read = self.stream.read(&mut self.buffer)?;
+        let bytes_read = self.stream.read_buf(&mut self.buffer).await?;
 
         if bytes_read == 0 {
             return Ok(None);
@@ -53,7 +54,7 @@ impl RespHandler {
     }
 
     pub async fn write_value(&mut self, value: RespType) -> Result<()> {
-        self.stream.write(value.serialize().as_bytes());
+        self.stream.write(value.serialize().as_bytes()).await?;
 
         Ok(())
     }
@@ -101,7 +102,7 @@ fn parse_int(buffer: &[u8]) -> Result<i64> {
 
 // $5\r\nhello\r\n
 fn parse_bulk_string(buffer: BytesMut) -> Result<(RespType, usize)> {
-    let (buld_string_length, mut bytes_consumed) =
+    let (buld_string_length, bytes_consumed) =
         if let Some((line, length)) = read_until_crlf(&&buffer[1..]) {
             let buld_string_length = parse_int(line)?;
 
