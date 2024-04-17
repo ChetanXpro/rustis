@@ -23,7 +23,7 @@ async fn handle_client(stream: TcpStream, state: Arc<ServerState>) {
 
             println!("Command: {}", command);
             println!("Args: {:?}", args);
-            match command.as_str() {
+            match command.to_lowercase().as_str() {
                 "ping" => RespType::SimpleString("PONG".to_string()),
 
                 "echo" => args.first().unwrap().clone(),
