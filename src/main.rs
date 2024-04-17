@@ -41,19 +41,51 @@ async fn handle_client(stream: TcpStream, state: Arc<ServerState>) {
                 }
 
                 "set" => {
-                    if args.len() > 1 {
-                        if let (RespType::BulkString(key), RespType::BulkString(value)) =
-                            (&args[0], &args[1])
+                    if args.len() > 2 {
+                        if let (
+                            Some(RespType::BulkString(key)),
+                            Some(RespType::BulkString(value)),
+                            Some(RespType::BulkString(ttl_str)),
+                        ) = (args.get(0), args.get(1), args.get(2))
                         {
-                            state.set(key.to_string(), value.to_string()).await;
+                            match ttl_str.parse::<u64>() {
+                                Ok(ttl) => {
+                                    let ttl_duration = tokio::time::Duration::from_secs(ttl);
+                                    state
+                                        .set(key.to_string(), value.to_string(), Some(ttl_duration))
+                                        .await;
+                                    RespType::SimpleString("OK".to_string())
+                                }
+                                Err(_) => RespType::Error(
+                                    "Invalid TTL: must be a valid integer".to_string(),
+                                ),
+                            }
+                        } else {
+                            RespType::Error(
+                                "Invalid command: key, value, and ttl must be bulk strings"
+                                    .to_string(),
+                            )
+                        }
+                    } else if args.len() == 2 {
+                        if let (
+                            Some(RespType::BulkString(key)),
+                            Some(RespType::BulkString(value)),
+                        ) = (args.get(0), args.get(1))
+                        {
+                            state.set(key.to_string(), value.to_string(), None).await;
                             RespType::SimpleString("OK".to_string())
                         } else {
-                            RespType::Error("Invalid command".to_string())
+                            RespType::Error(
+                                "Invalid command: key and value must be bulk strings".to_string(),
+                            )
                         }
                     } else {
-                        RespType::Error("Invalid command".to_string())
+                        RespType::Error(
+                            "Invalid command: set requires at least a key and a value".to_string(),
+                        )
                     }
                 }
+
                 _ => RespType::Error("Invalid command".to_string()),
             }
         } else {
