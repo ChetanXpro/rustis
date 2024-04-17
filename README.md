@@ -1,4 +1,4 @@
-# Rust Redis-like Server
+# Rustis
 
 This project is a simple implementation of a Redis-like server in Rust that uses native capabilities and no external dependencies to parse the Redis Serialization Protocol (RESP).
 
