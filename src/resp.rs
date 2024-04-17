@@ -1,9 +1,9 @@
 use anyhow::{anyhow, Result};
 use bytes::BytesMut;
-use std::io::{Read, Write};
+use std::fmt;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::{TcpListener, TcpStream};
+use tokio::net::TcpStream;
 
 const CRLF: &str = "\r\n";
 
@@ -16,14 +16,41 @@ pub enum RespType {
     BulkString(String),
 }
 
+impl fmt::Display for RespType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RespType::SimpleString(s) => write!(f, "{}", s),
+            RespType::Error(s) => write!(f, "{}", s),
+            RespType::Integer(i) => write!(f, "{}", i),
+            RespType::Array(arr) => {
+                let items = arr
+                    .iter()
+                    .map(|item| format!("{}", item))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                write!(f, "[{}]", items)
+            }
+            RespType::BulkString(s) => write!(f, "{}", s),
+        }
+    }
+}
+
 impl RespType {
     pub fn serialize(self) -> String {
         match self {
             RespType::SimpleString(s) => format!("+{}\r\n", s),
-            // RespType::Error(e) => format!("-{}\r\n", e),
-            RespType::BulkString(s) => format!("${}\r\n{}\r\n", s.chars().count(), s),
+            RespType::Error(e) => format!("-{}\r\n", e),
+            RespType::BulkString(s) => format!("${}\r\n{}\r\n", s.len(), s),
             RespType::Integer(i) => format!(":{}\r\n", i),
-            _ => unimplemented!(),
+            RespType::Array(elements) => {
+                let serialized_elements = elements
+                    .clone() // Clone the vector
+                    .into_iter()
+                    .map(|element| element.serialize())
+                    .collect::<Vec<String>>()
+                    .join("");
+                format!("*{}\r\n{}", elements.len(), serialized_elements)
+            }
         }
     }
 }
