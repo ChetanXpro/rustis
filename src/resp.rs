@@ -90,7 +90,7 @@ impl RespHandler {
 fn parse_message(buffer: BytesMut) -> Result<(RespType, usize)> {
     match buffer[0] as char {
         '+' => parse_simple_string(buffer),
-        // '-' => parse_error(buffer),
+        '-' => parse_error(buffer),
         '*' => parse_array(buffer),
         // ':' => parse_integer(buffer),
         '$' => parse_bulk_string(buffer),
@@ -101,6 +101,18 @@ fn parse_message(buffer: BytesMut) -> Result<(RespType, usize)> {
 // fn parse_integer(buffer: BytesMut) -> Result<(RespType, unsize)> {
 
 // }
+
+fn parse_error(buffer: BytesMut) -> Result<(RespType, usize)> {
+    let slice = &buffer[1..];
+    if let Some((line, length)) = read_until_crlf(slice) {
+        Ok((
+            RespType::Error(String::from_utf8_lossy(line).to_string()),
+            length,
+        ))
+    } else {
+        Err(anyhow!("Incomplete message"))
+    }
+}
 
 fn parse_simple_string(buffer: BytesMut) -> Result<(RespType, usize)> {
     if buffer.is_empty() {
